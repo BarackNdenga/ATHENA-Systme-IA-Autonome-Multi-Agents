@@ -1,0 +1,40 @@
+# Web & API
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+aiohttp==3.9.1
+beautifulsoup4==4.12.2
+
+# LLM & Embeddings
+langchain==0.0.350
+langchain-community==0.0.38
+langchain-openai==0.0.5
+openai==1.3.7
+ollama==0.1.7
+sentence-transformers==2.2.2
+
+# Mémoire vectorielle
+chromadb==0.4.18
+
+# Graphe de connaissances
+networkx==3.2.1
+
+# Vision
+opencv-python==4.8.1.78
+
+# Sécurité
+cryptography==42.0.5
+# liboqs-python  # optionnel: pip install liboqs-python (post-quantique réel)
+
+# Système
+python-dotenv==1.0.0
+pydantic==2.5.0
+watchdog==3.0.0
+psutil==5.9.6
+
+# Interface
+rich==13.7.0
+
+# Tests
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
