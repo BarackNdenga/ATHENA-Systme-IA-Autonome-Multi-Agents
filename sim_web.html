@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATHÉNA — Simulation</title>
+<style>
+  :root {
+    --bg: #0a0e1a; --panel: #111827; --border: #1e2d45;
+    --cyan: #00d4ff; --green: #00ff88; --yellow: #ffd700;
+    --red: #ff4757; --purple: #a855f7; --dim: #4a5568;
+    --text: #e2e8f0; --text-dim: #718096;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; font-size: 13px; overflow: hidden; }
+
+  header {
+    background: linear-gradient(90deg, #0a0e1a, #0d1b2e, #0a0e1a);
+    border-bottom: 1px solid var(--cyan);
+    padding: 10px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { color: var(--cyan); font-size: 17px; letter-spacing: 3px; }
+  #cycle-badge { background: var(--border); border: 1px solid var(--cyan); color: var(--cyan); padding: 3px 12px; border-radius: 20px; font-size: 12px; }
+  #sim-status { font-size: 11px; color: var(--green); }
+
+  main { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto 1fr auto; gap: 10px; padding: 10px; height: calc(100vh - 50px); }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .panel-title { background: var(--border); padding: 7px 14px; color: var(--cyan); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+
+  #query-banner {
+    grid-column: 1 / -1;
+    background: var(--panel); border: 1px solid var(--yellow);
+    border-radius: 8px; padding: 8px 16px;
+    color: var(--yellow); font-size: 13px;
+    display: flex; align-items: center; gap: 10px; max-height: 40px;
+  }
+  #query-banner span { color: var(--dim); font-size: 10px; white-space: nowrap; }
+
+  .left-col { display: flex; flex-direction: column; gap: 10px; }
+
+  #agents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+
+  .agent-card {
+    background: #0d1520; border: 1px solid var(--border);
+    border-radius: 8px; padding: 11px; transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .agent-card.running { border-color: var(--yellow); box-shadow: 0 0 10px rgba(255,215,0,0.2); }
+  .agent-card.done    { border-color: var(--green);  box-shadow: 0 0 10px rgba(0,255,136,0.15); }
+  .agent-card.failed  { border-color: var(--red);    box-shadow: 0 0 8px rgba(255,71,87,0.15); }
+
+  .agent-header { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .agent-emoji { font-size: 18px; }
+  .agent-name { color: var(--cyan); font-size: 11px; font-weight: bold; }
+  .agent-role { color: var(--dim); font-size: 10px; }
+  .dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .dot.running { background: var(--yellow); animation: pulse 0.7s infinite; }
+  .dot.done    { background: var(--green); }
+  .dot.failed  { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.2} }
+
+  .conf-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 3px; }
+  .conf-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+  .conf-fill { height: 100%; border-radius: 3px; transition: width 0.7s ease; }
+
+  .agent-stats { display: flex; gap: 12px; font-size: 10px; color: var(--text-dim); }
+  .stat-val { color: var(--text); font-weight: bold; font-size: 12px; }
+
+  .trend-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 9px; margin-top: 5px; }
+  .improving { background: rgba(0,255,136,0.12); color: var(--green); }
+  .declining  { background: rgba(255,71,87,0.12);  color: var(--red); }
+  .stable     { background: rgba(74,85,104,0.25);  color: var(--dim); }
+
+  #health-panel { padding: 10px 16px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+  .health-stat { text-align: center; }
+  .health-val { font-size: 20px; font-weight: bold; color: var(--cyan); }
+  .health-lbl { font-size: 10px; color: var(--dim); }
+
+  .right-col { display: flex; flex-direction: column; grid-row: 1 / 4; }
+  #log-container { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+  #log-container::-webkit-scrollbar { width: 3px; }
+  #log-container::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .log-entry { padding: 4px 8px; border-radius: 4px; font-size: 11px; line-height: 1.5; border-left: 2px solid transparent; }
+  .lc { border-left-color: var(--cyan);   background: rgba(0,212,255,0.04); color: var(--cyan); }
+  .lt { border-left-color: var(--purple); background: rgba(168,85,247,0.04); color: #c084fc; }
+  .la { border-left-color: var(--yellow); background: rgba(255,215,0,0.04);  color: var(--yellow); }
+  .lo { border-left-color: var(--green);  background: rgba(0,255,136,0.04);  color: var(--green); }
+  .lf { border-left-color: var(--red);    background: rgba(255,71,87,0.04);  color: var(--red); }
+  .lfb{ border-left-color: #f97316;       background: rgba(249,115,22,0.04); color: #fb923c; }
+  .le { border-left-color: var(--dim);    color: var(--dim); font-style: italic; }
+  .log-time { color: var(--dim); font-size: 10px; margin-right: 5px; }
+
+  #controls { grid-column: 1; display: flex; gap: 8px; align-items: center; }
+  button {
+    background: var(--border); border: 1px solid var(--cyan); color: var(--cyan);
+    padding: 5px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 11px;
+    transition: background 0.2s;
+  }
+  button:hover { background: rgba(0,212,255,0.1); }
+  button.danger { border-color: var(--red); color: var(--red); }
+  button.danger:hover { background: rgba(255,71,87,0.1); }
+  #speed-label { color: var(--dim); font-size: 11px; }
+  input[type=range] { accent-color: var(--cyan); width: 80px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🦉 ATHÉNA — Simulation</h1>
+  <div id="cycle-badge">Cycle #0</div>
+  <div id="sim-status">● En cours</div>
+</header>
+
+<main>
+  <div id="query-banner">
+    <span>QUERY</span>
+    <span id="query-text">Initialisation…</span>
+  </div>
+
+  <div class="left-col">
+    <div class="panel">
+      <div class="panel-title">⚡ Agents — Boucle ReAct</div>
+      <div id="agents-grid"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">📊 Santé système</div>
+      <div id="health-panel">
+        <div class="health-stat"><div class="health-val" id="h-conf">—</div><div class="health-lbl">Confiance moy.</div></div>
+        <div class="health-stat"><div class="health-val" id="h-ep">0</div><div class="health-lbl">Épisodes</div></div>
+        <div class="health-stat"><div class="health-val" id="h-imp">—</div><div class="health-lbl">En amélioration</div></div>
+        <div class="health-stat"><div class="health-val" id="h-cyc">0</div><div class="health-lbl">Cycles</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-col panel">
+    <div class="panel-title">📋 Journal temps réel</div>
+    <div id="log-container"></div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-pause">⏸ Pause</button>
+    <button id="btn-reset" class="danger">↺ Reset</button>
+    <span id="speed-label">Vitesse</span>
+    <input type="range" id="speed" min="1" max="5" value="3">
+  </div>
+</main>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────
+const AGENTS_DEF = [
+  { name: "Athena-Analyst",    role: "analyst",    emoji: "🔍" },
+  { name: "Athena-Researcher", role: "researcher", emoji: "🌐" },
+  { name: "Athena-Coder",      role: "coder",      emoji: "💻" },
+  { name: "Athena-Critic",     role: "critic",     emoji: "⚖️"  },
+];
+
+const QUERIES = [
+  "Analyse l'architecture microservices d'un système bancaire",
+  "Génère un script Python pour parser du JSON imbriqué",
+  "Recherche les meilleures pratiques Zero Trust 2025",
+  "Implémente un algorithme de tri rapide optimisé",
+  "Analyse les vulnérabilités d'une API REST publique",
+  "Génère un pipeline CI/CD pour un projet FastAPI",
+  "Explique la cryptographie post-quantique Kyber1024",
+  "Crée un système de cache Redis avec TTL adaptatif",
+  "Optimise les embeddings vectoriels pour ChromaDB",
+  "Conçois un graphe de connaissances avec NetworkX",
+];
+
+const THOUGHTS = [
+  "Décomposition de la tâche en sous-problèmes…",
+  "Consultation du contexte épisodique passé…",
+  "Identification des dépendances et contraintes…",
+  "Sélection de la stratégie optimale…",
+  "Analyse sémantique de la requête…",
+];
+
+const ACTIONS = {
+  analyst:    ["Analyse sémantique approfondie…", "Évaluation des composants…", "Modélisation du domaine…"],
+  researcher: ["Extraction d'informations pertinentes…", "Synthèse des sources…", "Agrégation des données…"],
+  coder:      ["Génération du code Python…", "Optimisation algorithmique…", "Implémentation des patterns…"],
+  critic:     ["Validation croisée des résultats…", "Scoring qualité /10…", "Détection des incohérences…"],
+};
+
+// ── État ──────────────────────────────────────────────────────────
+let agents = {};
+let cycle = 0;
+let paused = false;
+let simTimer = null;
+
+function speedMs() {
+  const v = parseInt(document.getElementById('speed').value);
+  return [2800, 2200, 1600, 1100, 700][v - 1];
+}
+
+function initAgents() {
+  agents = {};
+  AGENTS_DEF.forEach(a => {
+    agents[a.name] = {
+      ...a,
+      episodes: 0,
+      confHistory: [],
+      avgConf: 0.5,
+      successRate: 1.0,
+      contextBoost: 0,
+      trend: "stable",
+      status: "idle",
+    };
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function updateAgent(a, confidence) {
+  a.confHistory.push(confidence);
+  if (a.confHistory.length > 50) a.confHistory.shift();
+  a.episodes++;
+  a.avgConf = +(a.confHistory.reduce((s, v) => s + v, 0) / a.confHistory.length).toFixed(2);
+  a.successRate = +(a.confHistory.filter(c => c >= 0.55).length / a.confHistory.length).toFixed(2);
+  if (a.confHistory.length >= 4) {
+    const r = a.confHistory.slice(-4);
+    if (r[3] > r[0] + 0.08) a.trend = "improving";
+    else if (r[3] < r[0] - 0.08) a.trend = "declining";
+    else a.trend = "stable";
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function renderAgents() {
+  const grid = document.getElementById('agents-grid');
+  grid.innerHTML = '';
+  Object.values(agents).forEach(a => {
+    const pct = Math.round(a.avgConf * 100);
+    const fillColor = a.avgConf >= 0.7 ? '#00ff88' : a.avgConf >= 0.5 ? '#ffd700' : '#ff4757';
+    const trendCls = a.trend === 'improving' ? 'improving' : a.trend === 'declining' ? 'declining' : 'stable';
+    const trendLbl = a.trend === 'improving' ? '↑ improving' : a.trend === 'declining' ? '↓ declining' : '→ stable';
+    grid.innerHTML += `
+      <div class="agent-card ${a.status}">
+        <div class="agent-header">
+          <span class="agent-emoji">${a.emoji}</span>
+          <div><div class="agent-name">${a.name}</div><div class="agent-role">${a.role}</div></div>
+          <div class="dot ${a.status}"></div>
+        </div>
+        <div class="conf-label"><span>Confiance</span><span>${pct}%</span></div>
+        <div class="conf-bar"><div class="conf-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+        <div class="agent-stats">
+          <div><div class="stat-val">${Math.round(a.successRate*100)}%</div><div>succès</div></div>
+          <div><div class="stat-val">${a.episodes}</div><div>épisodes</div></div>
+          <div><div class="stat-val">+${a.contextBoost}</div><div>ctx boost</div></div>
+        </div>
+        <span class="trend-badge ${trendCls}">${trendLbl}</span>
+      </div>`;
+  });
+}
+
+function updateHealth() {
+  const vals = Object.values(agents);
+  const avgConf = vals.reduce((s, a) => s + a.avgConf, 0) / vals.length;
+  const totalEp = vals.reduce((s, a) => s + a.episodes, 0);
+  const improving = vals.filter(a => a.trend === 'improving').length;
+  document.getElementById('h-conf').textContent = Math.round(avgConf * 100) + '%';
+  document.getElementById('h-ep').textContent = totalEp;
+  document.getElementById('h-imp').textContent = improving;
+  document.getElementById('h-cyc').textContent = cycle;
+}
+
+// ── Log ───────────────────────────────────────────────────────────
+function log(cls, html) {
+  const c = document.getElementById('log-container');
+  const now = new Date().toLocaleTimeString('fr', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d = document.createElement('div');
+  d.className = `log-entry ${cls}`;
+  d.innerHTML = `<span class="log-time">${now}</span>${html}`;
+  c.appendChild(d);
+  if (c.children.length > 150) c.removeChild(c.firstChild);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ── Simulation d'un agent ─────────────────────────────────────────
+async function runAgent(a, query, delay = 0) {
+  const sp = speedMs();
+  await sleep(delay);
+  a.status = 'running';
+  renderAgents();
+
+  await sleep(sp * 0.25);
+  log('lt', `${a.emoji} <b>${a.name}</b> → <i>Thought:</i> ${pick(THOUGHTS)}`);
+
+  await sleep(sp * 0.3);
+  log('la', `${a.emoji} <b>${a.name}</b> → <i>Action:</i> ${pick(ACTIONS[a.role])}`);
+
+  await sleep(sp * 0.3);
+
+  // Confiance simulée avec progression réaliste
+  const base = Math.min(0.45 + a.episodes * 0.013, 0.88);
+  const confidence = Math.min(Math.max(base + rand(-0.16, 0.22), 0.1), 0.99);
+  updateAgent(a, confidence);
+
+  // FeedbackLoop
+  if (confidence < 0.55) {
+    a.contextBoost = Math.min(a.contextBoost + 1, 5);
+    log('lfb', `⚠ <b>FeedbackLoop</b> → ${a.name}: context_boost +1 (${a.contextBoost})`);
+  } else if (confidence >= 0.80 && a.contextBoost > 0) {
+    a.contextBoost--;
+    log('lfb', `✓ <b>FeedbackLoop</b> → ${a.name}: context_boost -1 (${a.contextBoost})`);
+  }
+
+  a.status = confidence >= 0.55 ? 'done' : 'failed';
+  const icon = a.status === 'done' ? '✅' : '❌';
+  const trendLbl = a.trend === 'improving' ? '↑ improving' : a.trend === 'declining' ? '↓ declining' : '→ stable';
+  log(a.status === 'done' ? 'lo' : 'lf',
+    `${a.emoji} <b>${a.name}</b> → <i>Observation:</i> confiance ${Math.round(confidence*100)}% ${icon} — ${trendLbl}`);
+
+  renderAgents();
+}
+
+// ── Boucle principale ─────────────────────────────────────────────
+async function runCycle() {
+  if (paused) return;
+  cycle++;
+  const query = pick(QUERIES);
+
+  document.getElementById('cycle-badge').textContent = `Cycle #${cycle}`;
+  document.getElementById('query-text').textContent = query;
+  Object.values(agents).forEach(a => a.status = 'idle');
+  renderAgents();
+
+  log('lc', `<b>━━ Cycle #${cycle} ━━</b> ${query}`);
+
+  const sp = speedMs();
+
+  // Analyst en premier
+  await runAgent(agents['Athena-Analyst'], query);
+
+  // Researcher + Coder en parallèle
+  await Promise.all([
+    runAgent(agents['Athena-Researcher'], query, 0),
+    runAgent(agents['Athena-Coder'], query, sp * 0.15),
+  ]);
+
+  // Critic en dernier
+  await runAgent(agents['Athena-Critic'], query, sp * 0.1);
+
+  updateHealth();
+  const avgConf = Math.round(Object.values(agents).reduce((s,a)=>s+a.avgConf,0)/4*100);
+  log('le', `✔ Cycle #${cycle} terminé — confiance système ${avgConf}%`);
+
+  if (!paused) simTimer = setTimeout(runCycle, sp * 0.6);
+}
+
+// ── Contrôles ─────────────────────────────────────────────────────
+document.getElementById('btn-pause').addEventListener('click', function() {
+  paused = !paused;
+  this.textContent = paused ? '▶ Reprendre' : '⏸ Pause';
+  document.getElementById('sim-status').textContent = paused ? '⏸ En pause' : '● En cours';
+  document.getElementById('sim-status').style.color = paused ? 'var(--yellow)' : 'var(--green)';
+  if (!paused) runCycle();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  clearTimeout(simTimer);
+  paused = false;
+  document.getElementById('btn-pause').textContent = '⏸ Pause';
+  document.getElementById('sim-status').textContent = '● En cours';
+  document.getElementById('sim-status').style.color = 'var(--green)';
+  document.getElementById('log-container').innerHTML = '';
+  cycle = 0;
+  initAgents();
+  renderAgents();
+  updateHealth();
+  runCycle();
+});
+
+// ── Démarrage ─────────────────────────────────────────────────────
+initAgents();
+renderAgents();
+updateHealth();
+runCycle();
+</script>
+</body>
+</html>
