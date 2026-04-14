@@ -48,10 +48,23 @@ athena_project/
 │
 ├── interfaces/
 │   ├── cli.py                       # CLI interactive (Rich, async)
-│   └── api.py                       # API REST (FastAPI)
+│   ├── api.py                       # API REST (FastAPI)
+│   └── athena_face.html             # Interface visage animée (Canvas + WebSocket + Speech) ★
+│
+├── domains/                         # Modules sectoriels spécialisés ★
+│   ├── router.py                    # Détection automatique du domaine + routage
+│   ├── medical.py                   # Diagnostic, interactions médicaments, dossiers patients
+│   ├── industry.py                  # Monitoring IoT, anomalies, maintenance prédictive
+│   ├── enterprise.py                # Finance, RH, stratégie, projets, juridique
+│   ├── education.py                 # Tuteur adaptatif, exercices, corrections
+│   └── cybersecurity.py             # Audit code, logs SOC, hardening, conformité OWASP
 │
 ├── internationalization/
 │   └── i18n.py                      # Détection langue + traduction via LLM (12 langues)
+│
+├── simulation/
+│   ├── sim_engine.py                # Simulation terminal (Rich)
+│   └── sim_web.html                 # Dashboard navigateur standalone (HTML/JS)
 │
 └── tests/
     └── test_core.py                 # Tests unitaires (pytest + pytest-asyncio)
@@ -67,7 +80,8 @@ Modules actifs dans l'engine au démarrage :
 ├── episodic_memory: EpisodicMemory
 ├── knowledge_graph: KnowledgeGraph
 ├── observability: ObservabilityHub
-└── feedback_loop: FeedbackLoop  ★
+├── feedback_loop: FeedbackLoop  ★
+└── domain_router: DomainRouter  ★
 ```
 
 ---
@@ -138,7 +152,15 @@ ATHÉNA> quit
 | `GET` | `/memory/{limit}` | Derniers souvenirs sémantiques |
 | `GET` | `/trust-report` | Rapport Zero Trust de toutes les entités |
 | `GET` | `/health` | Santé système + profils agents (feedback loop) |
+| `GET` | `/face` | Interface visage animée (Canvas IA + micro + synthèse vocale) |
 | `WS` | `/ws/query` | **Streaming temps réel** — étapes du plan en direct |
+| `POST` | `/domain` | Auto-détecte le domaine et route vers le module spécialisé |
+| `GET` | `/domains` | Liste les domaines disponibles et leurs mots-clés |
+| `POST` | `/domain/medical` | Module médical (diagnostic, médicaments, dossiers) |
+| `POST` | `/domain/industry` | Module industrie (capteurs, anomalies, maintenance) |
+| `POST` | `/domain/enterprise` | Module entreprise (finance, RH, stratégie) |
+| `POST` | `/domain/education` | Module éducation (tuteur, exercices, corrections) |
+| `POST` | `/domain/cybersecurity` | Module cybersécurité défensive (audit, hardening) |
 
 ---
 
@@ -324,6 +346,91 @@ pytest tests/ -v
 
 ---
 
+## Domaines spécialisés ★
+
+ATHÉNA détecte automatiquement le secteur de chaque requête et route vers le module expert correspondant.
+
+| Domaine | Capacités principales |
+| ------- | --------------------- |
+| 🏥 Médical | Diagnostic différentiel, interactions médicamenteuses, analyse de dossiers patients, littérature EBM |
+| 🏭 Industrie | Monitoring capteurs IoT, détection d'anomalies (spike/drift/flatline), maintenance prédictive, optimisation OEE |
+| 🏢 Entreprise | Analyse financière, gestion de projets, RH, stratégie SWOT, rapports exécutifs, revue juridique |
+| 🎓 Éducation | Tuteur adaptatif multi-niveaux, génération d'exercices, correction détaillée, plans d'apprentissage |
+| 🔒 Cybersécurité | Audit de code (OWASP Top 10), analyse de logs SOC, hardening, conformité ISO 27001/NIST, scan statique |
+
+```bash
+# Exemple — auto-détection
+curl -X POST http://localhost:8000/domain \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Mon patient a de la fièvre et une douleur thoracique"}'
+# → route automatiquement vers medical
+
+# Exemple — domaine forcé
+curl -X POST http://localhost:8000/domain \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Audite ce code Python", "domain": "cybersecurity"}'
+```
+
+---
+
+## Interface visage animée ★
+
+ATHÉNA dispose d'une interface visage IA animée en temps réel, accessible directement depuis le navigateur une fois le moteur lancé.
+
+```bash
+# Lancer le moteur
+python main.py
+
+# Ouvrir l'interface
+open http://localhost:8000/face
+```
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│              INTERFACE VISAGE ANIMÉE                    │
+│                                                         │
+│   ╭──────────────────────────────╮                      │
+│   │   👁  ⚡ ATHÉNA ⚡  👁        │  ← Canvas animé     │
+│   │        nez + bouche          │     (300×300 px)     │
+│   │   ● ● ●  (thinking dots)     │                      │
+│   ╰──────────────────────────────╯                      │
+│                                                         │
+│   [🎤 Parler]  [📷 Caméra]  [🔊 Son]                   │
+│   [ Message à ATHÉNA…          ] [→]                   │
+│   ████████░░░░░░░░  ← barre de confiance                │
+└─────────────────────────────────────────────────────────┘
+```
+
+Fonctionnalités :
+
+- **Visage Canvas** : tête holographique animée (halo, clignement, regard, bouche, sourcils, circuits déco)
+- **Bouche réactive** : s'ouvre dynamiquement pendant la synthèse vocale
+- **Thinking dots** : 3 points animés pendant le traitement
+- **Suivi du regard** : les yeux suivent le visage détecté via webcam (face-api.js)
+- **Micro** : reconnaissance vocale (Web Speech API, `fr-FR`) → envoi direct au moteur
+- **Synthèse vocale** : réponse lue à voix haute (voix féminine française si disponible)
+- **WebSocket** : connecté au moteur ATHÉNA en temps réel (`/ws/query`)
+- **Barre de confiance** : affiche le score du Critic en direct
+- **Statuts** : `ÉCOUTE…` / `TRAITEMENT…` / `PLANIFICATION…` / `PARLE…` / `HORS LIGNE`
+
+Fichier source : `interfaces/athena_face.html` — servi automatiquement par l'API FastAPI.
+
+---
+
+## Simulation
+
+```bash
+# Terminal (Rich — aucune dépendance supplémentaire)
+python simulation/sim_engine.py
+
+# Navigateur (standalone — ouvrir directement sans serveur)
+open simulation/sim_web.html
+```
+
+La simulation visualise en temps réel la boucle ReAct, les scores de confiance, la FeedbackLoop et les tendances des agents.
+
+---
+
 ## Stack technique
 
 | Couche | Technologies |
@@ -333,8 +440,10 @@ pytest tests/ -v
 | Mémoire vectorielle | ChromaDB |
 | Graphe | NetworkX |
 | Auto-amélioration | FeedbackLoop (stdlib Python — zero dépendance) |
+| Domaines métier | Medical / Industry / Enterprise / Education / Cybersecurity |
 | Web | aiohttp + BeautifulSoup |
 | Vision | OpenCV |
+| Interface visage | Canvas HTML5 + Web Speech API + face-api.js |
 | API REST | FastAPI + Uvicorn |
 | API Streaming | WebSocket (FastAPI natif) |
 | CLI | Rich |
